@@ -1,4 +1,4 @@
-import { BRIDGE_HTTP_URL } from '../config'
+import { BRIDGE_HTTP_URL, LANG } from '../config'
 import { getMic } from './audio'
 import { speakingNow, speakingSince } from './tts'
 import { startVad, type Vad } from './vad'
@@ -76,9 +76,13 @@ const WAKE_DEBOUNCE = 1500
  * Jervis, Jarvys or Java's for a perfectly clear utterance — every one of which
  * used to be silently discarded, so the wake word "just didn't work" with no
  * indication why. Better a rare false wake than a name that does not answer.
+ *
+ * The Portuguese greetings ("ei", "oi", "ô") and the pt-BR mishearings
+ * ("Jarves", "Jarbas", "Járvis") are there for the same reason. The name
+ * alone is what wakes him; the greeting only decides where the command starts.
  */
 const WAKE =
-  /\b(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|jarvys|jervis|jarvis's|travis|jarviss|java's|jarv)\b(?!'s)/i
+  /(?:\b(?:hey|hi|ok|okay|yo|ei|oi|ô|olá|ola|e aí|fala)[\s,]*)?\b(?:jarvis|jarvys|jervis|jarvis's|travis|jarviss|java's|jarv|jarves|jarbas|járvis)\b(?!'s)/i
 
 /** Everything after the wake phrase, which is usually the actual command. */
 function afterWake(text: string): string {
@@ -760,7 +764,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     rec = new Ctor()
     rec.continuous = true
     rec.interimResults = true
-    rec.lang = 'en-GB'
+    rec.lang = LANG
     rec.onstart = () => {
       running = true
       diag.running = true

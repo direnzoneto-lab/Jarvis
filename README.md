@@ -15,6 +15,29 @@ listens through the browser's own speech, and everything still works.
 
 ---
 
+## Em português
+
+Este fork fala e entende **português do Brasil** por padrão. Diga
+**"Ei Jarvis"** (ou só "Jarvis") e faça o pedido. Ele responde como um mordomo
+formal e trata você por "senhor".
+
+- **Idioma:** `JARVIS_LANG` (para o bridge) e `VITE_JARVIS_LANG` (para o
+  navegador, em `.env.local`). As duas usam `pt-BR` por padrão; use `en-GB` nas
+  duas para voltar ao inglês original.
+- **Voz:** sem a ElevenLabs, ele usa a melhor voz masculina em pt-BR do sistema:
+  Antonio no Edge e Daniel no Windows. No Chrome, a voz em pt-BR do Google é
+  feminina. Com a chave da ElevenLabs, ele usa a voz George em modo multilíngue.
+  A tecla **V** alterna entre as vozes instaladas. O motor Kokoro só fala
+  inglês, então fica desativado em português.
+- **Segurança:** o bridge só aceita conexões deste computador (`127.0.0.1`), e
+  não da rede local. Mesmo no modo padrão (somente leitura), ele consegue ler
+  arquivos, o seu Chrome logado, e-mail e agenda, e consegue acessar a internet.
+  Uma página ou um e-mail malicioso pode tentar induzi-lo a vazar dados.
+  **Não use `npm run bridge:writes`**: nesse modo ele executa comandos, envia
+  e-mails e clica no navegador sem pedir confirmação.
+
+---
+
 ## Requirements
 
 **In one line:** a Claude Code subscription, plus two free things every computer

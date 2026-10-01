@@ -1,6 +1,6 @@
 import type { AskHandlers } from './anthropic'
 import type { Blade, Panel } from '../store'
-import { BRIDGE_WS_URL } from '../config'
+import { BRIDGE_WS_URL, tr } from '../config'
 
 /**
  * Client for the local bridge (see bridge/server.mjs).
@@ -398,7 +398,14 @@ export async function ask(
     const arm = () => {
       clearTimeout(timer)
       timer = window.setTimeout(() => {
-        fail(new Error('The bridge went quiet — that turn was lost, sir.'))
+        fail(
+          new Error(
+            tr(
+              'The bridge went quiet — that turn was lost, sir.',
+              'A ponte ficou em silêncio — esse pedido se perdeu, senhor.',
+            ),
+          ),
+        )
       }, IDLE_TIMEOUT_MS)
     }
 

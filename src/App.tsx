@@ -13,7 +13,7 @@ import * as hands from './lib/hands'
 import { listenForClap } from './lib/clap'
 import * as camera from './lib/camera'
 import * as kokoro from './lib/kokoro'
-import { TTS_ENGINE } from './config'
+import { TTS_ENGINE, tr } from './config'
 import { forTool, attention } from './lib/fillers'
 import {
   ask,
@@ -63,11 +63,13 @@ const newId = () =>
 
 /** The same mishearings voice.ts accepts for the wake word — otherwise a turn
  *  that woke him as "travis" gets that word sent on to the model as a question. */
-const NAME = '(?:jarvis|jarvys|jervis|travis|jarviss|java\'s|jarv)'
+const NAME = '(?:jarvis|jarvys|jervis|travis|jarviss|java\'s|jarv|jarves|jarbas|járvis)'
+/** The greetings voice.ts accepts in front of his name, English and Portuguese. */
+const GREETING = '(?:hey|hi|ok|okay|yo|ei|oi|ô|olá|ola|e aí|fala)'
 /** A bare vocative — "Jarvis", "hey jarvis" — with nothing asked. */
-const BARE_NAME = new RegExp(`^(?:hey|hi|ok|okay|yo)?\\s*${NAME}[\\s,.!?]*$`, 'i')
+const BARE_NAME = new RegExp(`^${GREETING}?[\\s,]*${NAME}[\\s,.!?]*$`, 'i')
 /** A leading vocative on a real command: "Jarvis, what's the weather". */
-const LEADING_NAME = new RegExp(`^(?:hey|hi|ok|okay|yo)?\\s*${NAME}\\b[\\s,.:!?-]*`, 'i')
+const LEADING_NAME = new RegExp(`^${GREETING}?[\\s,]*${NAME}\\b[\\s,.:!?-]*`, 'i')
 
 export default function App() {
   const store = useStore
@@ -596,7 +598,13 @@ export default function App() {
         silence()
         const demo = createSpeaker()
         speaker.current = demo
-        demo.say(`Voice set to ${name.replace(/\(.*?\)/g, '').trim()}. At your service, sir.`)
+        const voiceName = name.replace(/\(.*?\)/g, '').trim()
+        demo.say(
+          tr(
+            `Voice set to ${voiceName}. At your service, sir.`,
+            `Voz alterada para ${voiceName}. Ao seu dispor, senhor.`,
+          ),
+        )
         void demo.end()
         return
       }
@@ -638,7 +646,12 @@ export default function App() {
         silence()
         const t = createSpeaker()
         speaker.current = t
-        t.say('Audio test. If you can hear this, speech output is working, sir.')
+        t.say(
+          tr(
+            'Audio test. If you can hear this, speech output is working, sir.',
+            'Teste de áudio. Se o senhor está ouvindo isto, a saída de voz está funcionando.',
+          ),
+        )
         void t.end().then(() => {
           const d = (window as unknown as Record<string, Record<string, unknown>>).__tts
           console.info('[jarvis] audio test →', d)

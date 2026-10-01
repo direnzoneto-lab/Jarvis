@@ -21,6 +21,10 @@ import { lookup as dnsLookup } from 'node:dns'
 import { isIP } from 'node:net'
 
 /** A redirect chain longer than this is a loop or a game, not a CDN. */
+/** Ask sites for pages in the language JARVIS speaks (see JARVIS_LANG). */
+const LANG = (process.env.JARVIS_LANG ?? '').trim() || 'pt-BR'
+const ACCEPT_LANGUAGE = `${LANG},${LANG.split('-')[0]};q=0.9,en;q=0.8`
+
 export const MAX_REDIRECTS = 4
 
 /**
@@ -252,7 +256,7 @@ export async function fetchText(url, { maxBytes, timeoutMs, accept }) {
     {
       'user-agent': PROXY_UA,
       accept: accept ?? 'text/html,application/xhtml+xml,*/*;q=0.8',
-      'accept-language': 'en-GB,en;q=0.9',
+      'accept-language': ACCEPT_LANGUAGE,
       'accept-encoding': 'identity',
     },
     timeoutMs,

@@ -47,6 +47,19 @@ function flag(name: string, raw: unknown, fallback: boolean): boolean {
 }
 
 /**
+ * The language JARVIS speaks and listens in, as a BCP 47 tag. Defaults to
+ * Brazilian Portuguese; set VITE_JARVIS_LANG=en-GB (and JARVIS_LANG=en-GB for
+ * the bridge) for the original English butler.
+ */
+export const LANG = str(import.meta.env.VITE_JARVIS_LANG) ?? 'pt-BR'
+export const PORTUGUESE = /^pt/i.test(LANG)
+
+/** Pick the line for the active language. */
+export function tr<T>(en: T, pt: T): T {
+  return PORTUGUESE ? pt : en
+}
+
+/**
  * Which brain to use.
  *
  *   'bridge' — run `npm run bridge` alongside the app. Authenticates off your
@@ -71,7 +84,9 @@ export const BACKEND: 'bridge' | 'direct' = choice(
  * `wss://` maps to `https://` on its own, which is why this is a prefix swap
  * rather than a hardcoded scheme.
  */
-export const BRIDGE_WS_URL = str(import.meta.env.VITE_BRIDGE_URL) ?? 'ws://localhost:8787'
+// 127.0.0.1 rather than localhost: the bridge listens on IPv4 loopback only,
+// and some systems resolve localhost to ::1 first.
+export const BRIDGE_WS_URL = str(import.meta.env.VITE_BRIDGE_URL) ?? 'ws://127.0.0.1:8787'
 export const BRIDGE_HTTP_URL = BRIDGE_WS_URL.replace(/^ws/, 'http')
 
 /**
@@ -107,12 +122,19 @@ export const USE_ELEVENLABS = flag(
  *     quantisation often silently falls back to CPU on WebGPU, which is the
  *     likely cause.
  */
-export const TTS_ENGINE: 'kokoro' | 'system' = choice(
+const ENGINE_CHOICE: 'kokoro' | 'system' = choice(
   'VITE_TTS_ENGINE',
   import.meta.env.VITE_TTS_ENGINE,
   ['kokoro', 'system'] as const,
   'system',
 )
+
+// Kokoro only carries English voices, so it would read Portuguese with an
+// English accent. Fall back to the system voice rather than mangle it.
+if (ENGINE_CHOICE === 'kokoro' && PORTUGUESE) {
+  console.warn('[jarvis] Kokoro only speaks English — using the system voice for ' + LANG + '.')
+}
+export const TTS_ENGINE: 'kokoro' | 'system' = PORTUGUESE ? 'system' : ENGINE_CHOICE
 
 /**
  * Which Kokoro voice. All four are British male:
@@ -301,4 +323,11 @@ Using tools:
 - If a tool fails or isn't connected, one plain sentence saying so.
 - For anything outward-facing or destructive (sending mail, posting, paying,
   deleting) say exactly what you're about to do and wait for confirmation.
-- If you don't know, say you don't know.`
+- If you don't know, say you don't know.
+${tr(
+  '',
+  `
+
+Always reply in Brazilian Portuguese, in a formal, educated register. "Sir" is
+"senhor". Write numbers, dates and times as spoken in Brazil.`,
+)}`

@@ -74,6 +74,22 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 const isDevPort = (port) =>
   (port >= 5173 && port <= 5199) || (port >= 4173 && port <= 4199)
 
+/**
+ * The bridge answers to this machine only. It listens on the loopback address,
+ * so nothing on the Wi-Fi or LAN can reach it, and it refuses any request whose
+ * Host header is not a loopback name — that is what stops a DNS-rebinding page
+ * (attacker.example resolving to 127.0.0.1) from reading /file and friends,
+ * since such requests arrive with no Origin header to reject.
+ */
+const HOST = '127.0.0.1'
+const LOOPBACK_NAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+function hostAllowed(host) {
+  if (!host) return false
+  const name = host.replace(/:\d+$/, '').toLowerCase()
+  return LOOPBACK_NAMES.has(name)
+}
+
 function originAllowed(origin) {
   if (!origin) return ALLOW_NO_ORIGIN
   if (EXTRA_ORIGINS.has(origin.replace(/\/+$/, ''))) return true
@@ -120,6 +136,33 @@ const MODEL = process.env.JARVIS_MODEL ?? 'claude-opus-5'
  * dead air shows.
  */
 const EFFORT = process.env.JARVIS_EFFORT ?? 'high'
+
+/**
+ * The language JARVIS speaks and listens in, as a BCP 47 tag. Defaults to
+ * Brazilian Portuguese; set JARVIS_LANG=en-GB for the original English butler.
+ * The persona below is written in English either way — the model follows it
+ * fine — and LANGUAGE_RULES tells it which language to answer in.
+ */
+const LANG = (process.env.JARVIS_LANG ?? '').trim() || 'pt-BR'
+const PORTUGUESE = /^pt/i.test(LANG)
+
+const LANGUAGE_RULES = PORTUGUESE
+  ? `
+
+LANGUAGE. Always speak Brazilian Portuguese, whatever language the material you
+read is in. Every rule above carries over, translated rather than transliterated:
+- "Sir" is "senhor", with the same positional meaning: "Senhor, a bateria está
+  em onze por cento" (urgent), "A renderização terminou, senhor" (routine).
+- "I'm afraid" is "Receio que"; "Shall I" is "Devo"; "Very good, sir" is
+  "Muito bem, senhor". Never "beleza", "tá", "show", "valeu" or other slang —
+  a formal, educated register, never stiff or Portuguese-from-Portugal.
+- The "never yeah" rule means never "é" or "uhum" — always "Sim."
+- Numbers, dates and times written as spoken in Brazil: "oito e quinze",
+  "primeiro de agosto", "dois mil e vinte e seis".
+- Proper names, product names and quoted titles stay as they are.`
+  : `
+
+LANGUAGE. Always speak English, whatever language the material you read is in.`
 
 /**
  * Both spellings of every renamed built-in are listed on purpose. The SDK
@@ -937,6 +980,9 @@ const handleRequest = async (req, res) => {
             : 'webm'
       const form = new FormData()
       form.append('model_id', 'scribe_v1')
+      // Pinning the language beats auto-detection on short commands, which are
+      // often a single English-looking word such as a product name.
+      form.append('language_code', LANG.split('-')[0].toLowerCase())
       form.append(
         'file',
         new Blob([Buffer.concat(chunks)], { type }),
@@ -966,6 +1012,10 @@ const handleRequest = async (req, res) => {
 }
 
 const server = http.createServer((req, res) => {
+  if (!hostAllowed(req.headers.host)) {
+    res.writeHead(403)
+    return res.end()
+  }
   // The handler is async, so anything it throws would otherwise become an
   // unhandled rejection and leave the browser waiting on a socket that is
   // never going to answer.
@@ -988,6 +1038,10 @@ const wss = new WebSocketServer({
       console.warn(`[jarvis] rejected websocket on path ${path}`)
       return done(false, 403, 'Forbidden')
     }
+    if (!hostAllowed(req.headers.host)) {
+      console.warn(`[jarvis] rejected websocket for host ${req.headers.host ?? '(none)'}`)
+      return done(false, 403, 'Forbidden')
+    }
     if (!originAllowed(origin)) {
       console.warn(
         `[jarvis] rejected websocket from origin ${origin ?? '(none)'}` +
@@ -998,13 +1052,13 @@ const wss = new WebSocketServer({
     done(true)
   },
 })
-server.listen(PORT)
+server.listen(PORT, HOST)
 
-console.log(`[jarvis] bridge listening on ws://localhost:${PORT}`)
+console.log(`[jarvis] bridge listening on ws://${HOST}:${PORT} (this machine only)`)
 console.log(
   `[jarvis] speech ${elevenKey() ? 'via ElevenLabs (key from MCP config)' : 'using browser fallback voice'}`,
 )
-console.log(`[jarvis] model ${MODEL} · effort ${EFFORT}`)
+console.log(`[jarvis] model ${MODEL} · effort ${EFFORT} · language ${LANG}`)
 console.log(
   `[jarvis] writes ${ALLOW_WRITES ? 'ENABLED' : 'disabled'}` +
     (ALLOW_WRITES ? '' : ' — set JARVIS_ALLOW_WRITES=1 to permit shell/file/device actions'),
@@ -1219,7 +1273,7 @@ wss.on('connection', (socket) => {
       // tuned for a coding agent — verbose, file-oriented, and a large chunk
       // of input tokens on every turn. Replacing it makes the persona stick,
       // keeps answers short enough to speak, and cuts cost per turn.
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt: SYSTEM_PROMPT + LANGUAGE_RULES,
       // Run from the home directory so project-scoped MCP servers don't shadow
       // the global ones, and so file tools have a sane root.
       cwd: homedir(),

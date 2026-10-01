@@ -5,6 +5,8 @@ import {
   TTS_ENGINE,
   KOKORO_VOICE,
   BRIDGE_HTTP_URL,
+  LANG,
+  PORTUGUESE,
 } from '../config'
 import * as kokoro from './kokoro'
 import { caps } from './capabilities'
@@ -174,6 +176,34 @@ const VOICE_PREF_KEY = 'jarvis.voice'
  * Voice → Manage Voices) and once installed it appears here automatically.
  */
 function score(v: SpeechSynthesisVoice): number {
+  return PORTUGUESE ? scorePortuguese(v) : scoreEnglish(v)
+}
+
+/**
+ * The Brazilian equivalent: a male pt-BR voice. Microsoft's Antonio (Edge's
+ * online "Natural" voice) is the best of what browsers ship; Windows' desktop
+ * Daniel and macOS' Felipe are the fallbacks. Google's pt-BR voice in Chrome is
+ * female, so it ranks below the men but above voices from Portugal.
+ */
+function scorePortuguese(v: SpeechSynthesisVoice): number {
+  const n = v.name.toLowerCase()
+  let s = 0
+
+  if (/\bantonio\b/.test(n)) s += 100
+  else if (/\b(daniel|felipe|donato|fabio|humberto|julio|nicolau|valerio)\b/.test(n)) s += 80
+  else if (n.includes('google português do brasil')) s += 50
+  else if (/\b(francisca|thalita|luciana|maria|brenda|leila|yara|elza)\b/.test(n)) s += 40
+
+  if (n.includes('natural') || n.includes('premium')) s += 30
+  else if (n.includes('enhanced')) s += 20
+
+  if (/pt[-_]br/i.test(v.lang)) s += 25
+  else s -= 30 // European Portuguese reads as the wrong accent
+
+  return s
+}
+
+function scoreEnglish(v: SpeechSynthesisVoice): number {
   const n = v.name.toLowerCase()
   let s = 0
 
@@ -212,11 +242,16 @@ const USABLE = 40
 export function candidateVoices(): SpeechSynthesisVoice[] {
   return speechSynthesis
     .getVoices()
-    .filter((v) => /^en/i.test(v.lang))
+    .filter((v) => sameLanguage(v.lang))
     .map((v) => ({ v, s: score(v) }))
     .filter((x) => x.s >= USABLE)
     .sort((a, b) => b.s - a.s)
     .map((x) => x.v)
+}
+
+/** Voices in the language JARVIS speaks (the region is scored, not filtered). */
+function sameLanguage(lang: string): boolean {
+  return lang.toLowerCase().replace('_', '-').split('-')[0] === LANG.toLowerCase().split('-')[0]
 }
 
 let cachedVoice: SpeechSynthesisVoice | null | undefined
@@ -236,7 +271,7 @@ function pickVoice(): SpeechSynthesisVoice | null {
     localStorage.removeItem(VOICE_PREF_KEY)
   }
 
-  cachedVoice = candidateVoices()[0] ?? all.find((v) => /^en/i.test(v.lang)) ?? null
+  cachedVoice = candidateVoices()[0] ?? all.find((v) => sameLanguage(v.lang)) ?? null
   return cachedVoice
 }
 
@@ -323,7 +358,7 @@ function shape(text: string): string {
       // The vocative wants its comma — that small beat before "sir" does most
       // of the characterisation. Anchored to a following pause or end of line
       // so the honorific is left alone: "Sir Isaac Newton" is not a vocative.
-      .replace(/([^,\s])\s+(sir)(\s*[.,!?;:]|\s*$)/gi, '$1, $2$3')
+      .replace(/([^,\s])\s+(sir|senhor)(\s*[.,!?;:]|\s*$)/gi, '$1, $2$3')
       .replace(/\s+/g, ' ')
       .trim()
   )
@@ -477,7 +512,7 @@ export function createSpeaker(): Speaker {
       const u = new SpeechSynthesisUtterance(text)
       const voice = pickVoice()
       if (voice) u.voice = voice
-      u.lang = voice?.lang ?? 'en-GB'
+      u.lang = voice?.lang ?? LANG
       // Deliberate, and deliberately invariant — the character's pace does not
       // change with stakes, and that steadiness is most of the effect. This
       // lands around 130 wpm, below the median for film dialogue.

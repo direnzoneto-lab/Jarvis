@@ -6,6 +6,7 @@ import { BladeSweep, Blades } from './Blades'
 import { Effects } from './Effects'
 import { Pointer } from './Pointer'
 import { GestureGuide } from './GestureGuide'
+import { tr } from '../config'
 
 const statusText: Record<Phase, string> = {
   offline: 'OFFLINE',
@@ -312,11 +313,12 @@ export function Hud() {
 
       <footer className="hud-bottom">
         <span className="hint">
-          say <b>“hey jarvis”</b> · <kbd>Space</kbd> to talk · <kbd>G</kbd> hands
+          {tr('say', 'diga')} <b>“{tr('hey jarvis', 'ei jarvis')}”</b> · <kbd>{tr('Space', 'Espaço')}</kbd>{' '}
+          {tr('to talk', 'para falar')} · <kbd>G</kbd> {tr('hands', 'mãos')}
           {voice && (
             <>
               {' · '}
-              <kbd>V</kbd> voice: {voice.replace(/\(.*?\)/g, '').trim()}
+              <kbd>V</kbd> {tr('voice', 'voz')}: {voice.replace(/\(.*?\)/g, '').trim()}
             </>
           )}
         </span>
